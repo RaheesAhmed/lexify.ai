@@ -1,13 +1,52 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FileUpload } from "@/components/ui/file-upload";
+import dynamic from "next/dynamic";
 import { useSession } from "next-auth/react";
 import { AlertCircle, FileText, Clock } from "lucide-react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { MetricsCards } from "@/components/analytics/metrics-cards";
-import { ProcessingTrends } from "@/components/analytics/processing-trends";
+import { LazyLoading } from "@/components/ui/lazy-loading";
+import { FileUpload } from "@/components/ui/file-upload";
+
+// Dynamically import non-critical components
+const MetricsCards = dynamic(
+  () =>
+    import("@/components/analytics/metrics-cards").then(
+      (mod) => mod.MetricsCards
+    ),
+  {
+    loading: () => (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            className="rounded-xl border bg-card p-6 animate-pulse space-y-2"
+          >
+            <div className="h-4 w-24 bg-muted rounded" />
+            <div className="h-8 w-16 bg-muted rounded" />
+          </div>
+        ))}
+      </div>
+    ),
+    ssr: false,
+  }
+);
+
+const ProcessingTrends = dynamic(
+  () =>
+    import("@/components/analytics/processing-trends").then(
+      (mod) => mod.ProcessingTrends
+    ),
+  {
+    loading: () => (
+      <div className="rounded-xl border bg-card p-6">
+        <div className="h-[300px] animate-pulse bg-muted rounded-md" />
+      </div>
+    ),
+    ssr: false,
+  }
+);
 
 interface Document {
   id: string;
@@ -106,13 +145,9 @@ export default function DashboardPage() {
 
     try {
       for (const file of files) {
-        console.log("Uploading file:", file.name, "Type:", file.type);
-
         const formData = new FormData();
         formData.append("file", file);
         formData.append("userId", session.user.id);
-
-        console.log("Making request with userId:", session.user.id);
 
         const response = await fetch("/api/documents", {
           method: "POST",
@@ -120,20 +155,16 @@ export default function DashboardPage() {
         });
 
         const data = await response.json();
-        console.log("Upload response:", data);
 
         if (!response.ok) {
           throw new Error(data.error || "Failed to upload file");
         }
 
-        // Update progress for each file
         setProgress((prev) => prev + 100 / files.length);
       }
 
-      // Refresh documents list after successful upload
       fetchDocuments();
 
-      // Reset state after successful upload
       setTimeout(() => {
         setUploading(false);
         setProgress(0);
@@ -163,7 +194,6 @@ export default function DashboardPage() {
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
   };
 
-  // Show loading state while checking session
   if (status === "loading") {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -189,21 +219,23 @@ export default function DashboardPage() {
       )}
 
       {/* Analytics Section */}
-      {loadingAnalytics ? (
-        <div className="flex items-center justify-center py-8">
-          <Clock className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : analyticsData ? (
-        <div className="space-y-6">
-          <MetricsCards
-            totalDocuments={analyticsData.totalDocuments}
-            activeUsers={analyticsData.activeUsers}
-            completedAnalyses={analyticsData.completedAnalyses}
-            processingRate={analyticsData.processingRate}
-          />
-          <ProcessingTrends data={analyticsData.trendsData} />
-        </div>
-      ) : null}
+      <LazyLoading>
+        {loadingAnalytics ? (
+          <div className="flex items-center justify-center py-8">
+            <Clock className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : analyticsData ? (
+          <div className="space-y-6">
+            <MetricsCards
+              totalDocuments={analyticsData.totalDocuments}
+              activeUsers={analyticsData.activeUsers}
+              completedAnalyses={analyticsData.completedAnalyses}
+              processingRate={analyticsData.processingRate}
+            />
+            <ProcessingTrends data={analyticsData.trendsData} />
+          </div>
+        ) : null}
+      </LazyLoading>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Quick Upload Card */}
