@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150">
+  <defs>
+    <!-- Clean gradient for subtle depth -->
+    <linearGradient id="text-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1e293b"/>
+      <stop offset="90%" style="stop-color:#334155"/>
+    </linearGradient>
+    
+    <!-- Subtle glow -->
+    <filter id="soft-glow">
+      <feGaussianBlur stdDeviation="1" result="blur"/>
+      <feComposite in="blur" in2="SourceGraphic" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Main Text Group - Centered -->
+  <g transform="translate(20, 85)">
+    <text 
+      font-family="Satoshi, sans-serif" 
+      font-size="48" 
+      font-weight="600" 
+      letter-spacing="-0.03em"
+      filter="url(#soft-glow)">
+      <tspan fill="url(#text-gradient)">lexify</tspan><tspan fill="#0ea5e9" dx="-0.05em">.ai</tspan>
+    </text>
+  </g>
+</svg>

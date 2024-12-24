@@ -1,0 +1,136 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: "Satoshi";
+  src: url("/fonts/Satoshi-Variable.woff2") format("woff2");
+  font-weight: 300 900;
+  font-display: swap;
+  font-style: normal;
+}
+
+@layer base {
+  :root {
+    /* Base Colors */
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+
+    /* Brand Colors */
+    --primary: 217 91% 53%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217 24% 17%;
+    --secondary-light: 217 24% 25%;
+    --secondary-foreground: 210 40% 98%;
+
+    /* Accent Colors */
+    --accent: 201 96% 48%;
+    --accent-foreground: 210 40% 98%;
+    --success: 158 94% 30%;
+    --success-foreground: 210 40% 98%;
+
+    /* UI Colors */
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    /* Feedback Colors */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    /* Neutral Colors */
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 217 91% 53%;
+
+    /* Radii */
+    --radius-sm: 0.3rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1),
+      0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1),
+      0 4px 6px -4px rgb(0 0 0 / 0.1);
+  }
+
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    /* Brand Colors in Dark Mode */
+    --primary: 217 91% 53%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217 24% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    /* Accent Colors in Dark Mode */
+    --accent: 201 96% 48%;
+    --accent-foreground: 210 40% 98%;
+    --success: 158 94% 30%;
+    --success-foreground: 210 40% 98%;
+
+    /* UI Colors in Dark Mode */
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+    --muted: 217 24% 17%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    /* Feedback Colors in Dark Mode */
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    /* Neutral Colors in Dark Mode */
+    --border: 217 24% 17%;
+    --input: 217 24% 17%;
+    --ring: 217 91% 53%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-satoshi font-bold tracking-tight;
+  }
+}
+
+@layer components {
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-success;
+  }
+
+  .hero-gradient {
+    @apply absolute inset-0 bg-gradient-to-br from-primary/10 via-accent/5 to-success/10 -z-10;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+  }
+
+  .button-primary {
+    @apply px-6 py-3 rounded-lg bg-primary text-white font-medium transition-all hover:bg-primary/90 hover:shadow-md;
+  }
+
+  .button-secondary {
+    @apply px-6 py-3 rounded-lg border border-primary/20 hover:border-primary/40 font-medium transition-all hover:bg-primary/5;
+  }
+}
