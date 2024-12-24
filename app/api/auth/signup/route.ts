@@ -5,7 +5,17 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(req: Request) {
   try {
-    const { name, email, password } = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (e) {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
+
+    const { name, email, password } = body;
 
     // Validate input
     if (!email) {
@@ -35,50 +45,65 @@ export async function POST(req: Request) {
       );
     }
 
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: "An account with this email already exists" },
+        { status: 400 }
+      );
+    }
+
     // Hash password
     const hashedPassword = await hash(password, 12);
 
     // Create user
-    const user = await prisma.user
-      .create({
-        data: {
-          name: name || null, // Handle optional name field
-          email: email.toLowerCase(), // Store email in lowercase
-          password: hashedPassword,
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      })
-      .catch((error: unknown) => {
-        if (error instanceof PrismaClientKnownRequestError) {
-          // Handle unique constraint violation
-          if (error.code === "P2002") {
-            throw new Error("An account with this email already exists");
-          }
-        }
-        throw error;
-      });
-
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
+    const user = await prisma.user.create({
+      data: {
+        name: name || null,
+        email: email.toLowerCase(),
+        password: hashedPassword,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
       },
     });
-  } catch (error) {
-    console.error("Signup error:", error);
 
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json(
+      {
+        success: true,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        },
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    // Safely log error details
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    const errorDetails = {
+      name: error instanceof Error ? error.name : "UnknownError",
+      message: errorMessage,
+    };
+    console.error("Signup error:", errorDetails);
+
+    if (error instanceof PrismaClientKnownRequestError) {
+      return NextResponse.json(
+        { error: "Database error during signup" },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json(
-      { error: "An error occurred during signup" },
+      { error: "An error occurred during signup. Please try again." },
       { status: 500 }
     );
   }

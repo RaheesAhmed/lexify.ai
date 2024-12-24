@@ -49,33 +49,14 @@ model User {
   id            String    @id @default(cuid())
   name          String?
   email         String?   @unique
+  password      String    @db.Text
   emailVerified DateTime?
-  password      String?
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
   accounts      Account[]
   sessions      Session[]
   documents     Document[]
-}
-
-model Document {
-  id              String   @id @default(cuid())
-  title           String
-  content         String   @db.Text
-  content_preview String?  @db.Text
-  metadata        Json?
-  file_url        String?
-  file_type       String?
-  file_size       Int?
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
-  userId          String
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([title])
-  @@index([content(ops: raw("gin_trgm_ops"))], type: Gin)
+  comments      Comment[]
+  replies       Reply[]
 }
 
 model VerificationToken {
@@ -84,4 +65,55 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model Document {
+  id              String    @id @default(cuid())
+  title           String
+  content         String    @db.Text
+  content_preview String?   @db.Text
+  metadata        Json?
+  file_url        String?
+  file_type       String?
+  file_size       Int?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comments        Comment[]
+
+  @@index([userId])
+  @@index([title])
+  @@index([content(ops: raw("gin_trgm_ops"))], type: Gin)
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  content    String   @db.Text
+  startIndex Int
+  endIndex   Int
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  userId     String
+  documentId String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  replies    Reply[]
+
+  @@index([userId])
+  @@index([documentId])
+}
+
+model Reply {
+  id         String   @id @default(cuid())
+  content    String   @db.Text
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  userId     String
+  commentId  String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  comment    Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([commentId])
 }

@@ -33,14 +33,18 @@ export default function SignUpPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Something went wrong");
+        throw new Error(data.error || "Failed to create account");
       }
 
       // Redirect to login page after successful signup
       router.push("/login?registered=true");
     } catch (error) {
       console.error("Signup error:", error);
-      setError(error instanceof Error ? error.message : "Something went wrong");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to create account. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -49,6 +53,7 @@ export default function SignUpPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (error) setError(null);
   };
 
   return (
@@ -79,7 +84,7 @@ export default function SignUpPage() {
             placeholder="John Doe"
             value={formData.name}
             onChange={handleChange}
-            required
+            disabled={loading}
           />
         </div>
 
@@ -95,6 +100,7 @@ export default function SignUpPage() {
             value={formData.email}
             onChange={handleChange}
             required
+            disabled={loading}
           />
         </div>
 
@@ -111,13 +117,14 @@ export default function SignUpPage() {
             onChange={handleChange}
             required
             minLength={8}
+            disabled={loading}
           />
         </div>
 
         <button
           type="submit"
           disabled={loading}
-          className="button-primary w-full"
+          className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
           {loading ? "Creating Account..." : "Create Account"}
         </button>

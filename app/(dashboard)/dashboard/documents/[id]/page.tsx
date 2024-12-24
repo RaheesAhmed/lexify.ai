@@ -35,6 +35,14 @@ interface DocumentData {
   }>;
 }
 
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+};
+
 export default function DocumentAnalysisPage() {
   const params = useParams();
   const router = useRouter();
@@ -44,22 +52,38 @@ export default function DocumentAnalysisPage() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   useEffect(() => {
+    if (!params?.id) return;
     fetchDocument();
     // If document is processing, poll for updates
     if (documentData?.status === "Processing") {
       const interval = setInterval(fetchDocument, 5000); // Poll every 5 seconds
       return () => clearInterval(interval);
     }
-  }, [params.id, documentData?.status]);
+  }, [params?.id, documentData?.status]);
 
   const fetchDocument = async () => {
+    if (!params?.id) return;
+
     try {
+      setLoading(true);
       const response = await fetch(`/api/documents/${params.id}`);
       if (!response.ok) {
         throw new Error("Failed to fetch document");
       }
       const data = await response.json();
-      setDocumentData(data);
+
+      // Transform the data to match our interface
+      const transformedData: DocumentData = {
+        name: data.title || "Untitled",
+        status: data.metadata?.status || "PENDING",
+        lastUpdated: new Date(data.updated_at).toLocaleString(),
+        size: formatFileSize(data.file_size),
+        riskScore: data.analysis?.riskScore || 0,
+        clauses: data.analysis?.clauses || [],
+        compliance: data.analysis?.compliance || [],
+      };
+
+      setDocumentData(transformedData);
       setError(null);
     } catch (error) {
       console.error("Error fetching document:", error);
@@ -211,67 +235,73 @@ export default function DocumentAnalysisPage() {
       </div>
 
       {/* Clauses Analysis */}
-      <div className="rounded-xl border bg-card">
-        <div className="border-b p-4">
-          <div className="flex items-center gap-2">
-            <Scale className="h-5 w-5" />
-            <h2 className="font-semibold">Key Clauses</h2>
+      {documentData?.clauses && documentData.clauses.length > 0 && (
+        <div className="rounded-xl border bg-card">
+          <div className="border-b p-4">
+            <div className="flex items-center gap-2">
+              <Scale className="h-5 w-5" />
+              <h2 className="font-semibold">Key Clauses</h2>
+            </div>
+          </div>
+          <div className="divide-y">
+            {documentData.clauses.map((clause) => (
+              <div key={clause.id} className="p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="font-medium">{clause.type}</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {clause.content}
+                    </p>
+                    {clause.recommendation && (
+                      <p
+                        className={`mt-2 text-sm ${
+                          clause.risk === "high"
+                            ? "text-destructive"
+                            : "text-yellow-500"
+                        }`}
+                      >
+                        Recommendation: {clause.recommendation}
+                      </p>
+                    )}
+                  </div>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${getRiskColor(
+                      clause.risk
+                    )}`}
+                  >
+                    {clause.risk} risk
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-        <div className="divide-y">
-          {documentData.clauses.map((clause) => (
-            <div key={clause.id} className="p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-medium">{clause.type}</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {clause.content}
-                  </p>
-                  {clause.recommendation && (
-                    <p
-                      className={`mt-2 text-sm ${
-                        clause.risk === "high"
-                          ? "text-destructive"
-                          : "text-yellow-500"
-                      }`}
-                    >
-                      Recommendation: {clause.recommendation}
-                    </p>
-                  )}
-                </div>
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${getRiskColor(
-                    clause.risk
-                  )}`}
-                >
-                  {clause.risk} risk
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
 
       {/* Compliance Checks */}
-      <div className="rounded-xl border bg-card">
-        <div className="border-b p-4">
-          <div className="flex items-center gap-2">
-            <CheckCircle className="h-5 w-5" />
-            <h2 className="font-semibold">Compliance Checks</h2>
+      {documentData?.compliance && documentData.compliance.length > 0 && (
+        <div className="rounded-xl border bg-card">
+          <div className="border-b p-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5" />
+              <h2 className="font-semibold">Compliance Checks</h2>
+            </div>
+          </div>
+          <div className="divide-y">
+            {documentData.compliance.map((check) => (
+              <div key={check.id} className="flex items-center gap-4 p-4">
+                {getComplianceIcon(check.status)}
+                <div>
+                  <h3 className="font-medium">{check.check}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {check.details}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-        <div className="divide-y">
-          {documentData.compliance.map((check) => (
-            <div key={check.id} className="flex items-center gap-4 p-4">
-              {getComplianceIcon(check.status)}
-              <div>
-                <h3 className="font-medium">{check.check}</h3>
-                <p className="text-sm text-muted-foreground">{check.details}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
