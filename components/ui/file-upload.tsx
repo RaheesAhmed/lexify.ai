@@ -1,201 +1,164 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { FileText, X, Upload, AlertCircle } from "lucide-react";
+import { useState, useCallback } from "react";
+import { useDropzone } from "react-dropzone";
+import { FileText, Upload, X, AlertCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface FileUploadProps {
-  onFilesSelected: (files: File[]) => void;
-  maxFiles?: number;
-  maxSize?: number; // in MB
-  accept?: string[];
-  uploading?: boolean;
-  progress?: number;
+  onUpload: (file: File) => Promise<void>;
+  maxSize?: number; // in bytes
+  accept?: Record<string, string[]>;
+  className?: string;
 }
 
 export function FileUpload({
-  onFilesSelected,
-  maxFiles = 10,
-  maxSize = 10,
-  accept = [".pdf", ".doc", ".docx"],
-  uploading = false,
-  progress = 0,
+  onUpload,
+  maxSize = 10 * 1024 * 1024, // 10MB default
+  accept = {
+    "application/pdf": [".pdf"],
+    "application/msword": [".doc"],
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [
+      ".docx",
+    ],
+  },
+  className,
 }: FileUploadProps) {
-  const [dragActive, setDragActive] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
+  const onDrop = useCallback(
+    async (acceptedFiles: File[]) => {
+      setError(null);
 
-  const validateFiles = (files: File[]): File[] => {
-    const validFiles: File[] = [];
-    const errors: string[] = [];
-
-    files.forEach((file) => {
-      // Check file size
-      if (file.size > maxSize * 1024 * 1024) {
-        errors.push(`${file.name} is too large. Maximum size is ${maxSize}MB`);
+      // Validate file size
+      const file = acceptedFiles[0];
+      if (file.size > maxSize) {
+        setError(`File size must be less than ${formatFileSize(maxSize)}`);
         return;
       }
 
-      // Check file type
-      const fileExtension = `.${file.name.split(".").pop()?.toLowerCase()}`;
-      if (!accept.includes(fileExtension)) {
-        errors.push(`${file.name} is not a supported file type`);
-        return;
+      setFiles([file]);
+
+      try {
+        setUploading(true);
+        await onUpload(file);
+        setFiles([]);
+      } catch (error) {
+        console.error("Upload error:", error);
+        setError("Failed to upload file. Please try again.");
+      } finally {
+        setUploading(false);
       }
+    },
+    [maxSize, onUpload]
+  );
 
-      validFiles.push(file);
-    });
-
-    if (errors.length > 0) {
-      setError(errors[0]);
-      setTimeout(() => setError(null), 3000);
-    }
-
-    return validFiles;
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    handleFiles(files);
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files ? Array.from(e.target.files) : [];
-    handleFiles(files);
-  };
-
-  const handleFiles = (files: File[]) => {
-    if (files.length === 0) return;
-
-    if (selectedFiles.length + files.length > maxFiles) {
-      setError(`Maximum ${maxFiles} files allowed`);
-      setTimeout(() => setError(null), 3000);
-      return;
-    }
-
-    const validFiles = validateFiles(files);
-    if (validFiles.length > 0) {
-      const newFiles = [...selectedFiles, ...validFiles];
-      setSelectedFiles(newFiles);
-      onFilesSelected(newFiles);
-    }
-  };
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept,
+    maxFiles: 1,
+    multiple: false,
+  });
 
   const removeFile = (index: number) => {
-    const newFiles = selectedFiles.filter((_, i) => i !== index);
-    setSelectedFiles(newFiles);
-    onFilesSelected(newFiles);
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setError(null);
   };
 
   return (
-    <div className="w-full space-y-4">
-      {/* Upload Area */}
+    <div className={cn("space-y-4", className)}>
       <div
-        className={`relative rounded-lg border-2 border-dashed p-8 text-center ${
-          dragActive
-            ? "border-primary bg-primary/5"
-            : "border-muted-foreground/25"
-        }`}
-        onDragEnter={handleDrag}
-        onDragLeave={handleDrag}
-        onDragOver={handleDrag}
-        onDrop={handleDrop}
+        {...getRootProps()}
+        className={cn(
+          "relative rounded-lg border-2 border-dashed border-muted-foreground/25 p-8 transition-colors",
+          isDragActive && "border-primary/50 bg-primary/5",
+          error && "border-destructive/50 bg-destructive/5"
+        )}
       >
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          accept={accept.join(",")}
-          onChange={handleChange}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          disabled={uploading}
-        />
-        <div className="space-y-4">
-          <div className="flex justify-center">
-            <Upload className="h-12 w-12 text-muted-foreground" />
-          </div>
-          <div className="space-y-2">
+        <input {...getInputProps()} />
+        <div className="flex flex-col items-center justify-center gap-2 text-center">
+          <Upload
+            className={cn(
+              "h-8 w-8",
+              isDragActive ? "text-primary" : "text-muted-foreground"
+            )}
+          />
+          <div className="space-y-1">
             <p className="text-sm font-medium">
-              Drag and drop your files here or click to browse
+              {isDragActive ? "Drop the file here" : "Drag & drop file here"}
             </p>
             <p className="text-xs text-muted-foreground">
-              Supported formats: PDF, DOC, DOCX (max {maxSize}MB)
+              or click to select file
             </p>
           </div>
+          <p className="text-xs text-muted-foreground">
+            PDF or Word documents up to {formatFileSize(maxSize)}
+          </p>
         </div>
       </div>
 
-      {/* Error Message */}
+      {/* Error message */}
       {error && (
-        <div className="flex items-center gap-2 text-sm text-destructive">
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-destructive">
           <AlertCircle className="h-4 w-4" />
-          {error}
+          <p className="text-sm">{error}</p>
         </div>
       )}
 
-      {/* Progress Bar */}
-      {uploading && (
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span>Uploading...</span>
-            <span>{progress}%</span>
-          </div>
-          <div className="h-2 rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Selected Files */}
-      {selectedFiles.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-sm font-medium">Selected Files:</p>
-          <div className="divide-y rounded-lg border">
-            {selectedFiles.map((file, index) => (
-              <div
-                key={`${file.name}-${index}`}
-                className="flex items-center justify-between p-3"
-              >
-                <div className="flex items-center gap-3">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <div>
-                    <p className="text-sm font-medium">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                  </div>
+      {/* File list */}
+      {files.length > 0 && (
+        <ul className="space-y-2">
+          {files.map((file, index) => (
+            <li
+              key={index}
+              className="flex items-center justify-between rounded-lg border bg-card p-3"
+            >
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" />
+                <div>
+                  <p className="text-sm font-medium">{file.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatFileSize(file.size)}
+                  </p>
                 </div>
-                {!uploading && (
-                  <button
-                    onClick={() => removeFile(index)}
-                    className="rounded-full p-1 hover:bg-muted"
-                  >
-                    <X className="h-4 w-4" />
-                    <span className="sr-only">Remove file</span>
-                  </button>
-                )}
               </div>
-            ))}
+              <button
+                onClick={() => removeFile(index)}
+                className="rounded-full p-1 hover:bg-muted"
+              >
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Upload progress */}
+      {uploading && (
+        <div className="flex items-center gap-2">
+          <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+            <div className="h-full w-1/2 animate-progress rounded-full bg-primary" />
           </div>
+          <p className="text-xs text-muted-foreground">Uploading...</p>
         </div>
       )}
     </div>
   );
 }
+
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+// Add this to your globals.css
+// @keyframes progress {
+//   0% { transform: translateX(-100%); }
+//   50% { transform: translateX(100%); }
+//   100% { transform: translateX(-100%); }
+// }

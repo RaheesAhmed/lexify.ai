@@ -1,137 +1,157 @@
 "use client";
 
-import { FileText, BarChart3, Users, Clock } from "lucide-react";
+import { useState, useEffect } from "react";
+import { FileText, AlertCircle } from "lucide-react";
+import { FileUpload } from "@/components/ui/file-upload";
 
-const stats = [
-  {
-    name: "Total Documents",
-    value: "2,345",
-    change: "+12.3%",
-    icon: FileText,
-  },
-  {
-    name: "Analysis Completed",
-    value: "1,876",
-    change: "+8.2%",
-    icon: BarChart3,
-  },
-  {
-    name: "Team Members",
-    value: "12",
-    change: "+2",
-    icon: Users,
-  },
-  {
-    name: "Avg. Processing Time",
-    value: "2.4m",
-    change: "-18.5%",
-    icon: Clock,
-  },
-];
-
-const recentDocuments = [
-  {
-    id: 1,
-    name: "Contract Agreement.pdf",
-    status: "Analyzed",
-    date: "2 hours ago",
-    type: "Contract",
-  },
-  {
-    id: 2,
-    name: "Legal Brief - Case 123.docx",
-    status: "Processing",
-    date: "5 hours ago",
-    type: "Brief",
-  },
-  {
-    id: 3,
-    name: "NDA - Company XYZ.pdf",
-    status: "Analyzed",
-    date: "1 day ago",
-    type: "NDA",
-  },
-  {
-    id: 4,
-    name: "Patent Application.pdf",
-    status: "Queued",
-    date: "1 day ago",
-    type: "Patent",
-  },
-];
+interface Document {
+  id: string;
+  name: string;
+  status: string;
+  lastUpdated: string;
+  size: string;
+}
 
 export default function DashboardPage() {
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
+
+  const fetchDocuments = async () => {
+    try {
+      const response = await fetch("/api/documents");
+      if (!response.ok) {
+        throw new Error("Failed to fetch documents");
+      }
+      const data = await response.json();
+      setDocuments(data);
+      setError(null);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+      setError("Failed to load documents. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpload = async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("/api/documents", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload document");
+      }
+
+      const data = await response.json();
+      setDocuments((prev) => [
+        {
+          id: data.id,
+          name: data.name,
+          status: data.status,
+          lastUpdated: "Just now",
+          size: formatFileSize(file.size),
+        },
+        ...prev,
+      ]);
+      setError(null);
+    } catch (error) {
+      console.error("Upload error:", error);
+      throw error;
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Stats Grid */}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => {
-          const Icon = stat.icon;
-          return (
-            <div
-              key={stat.name}
-              className="rounded-xl border bg-card p-6 shadow-sm"
-            >
-              <div className="flex items-center gap-4">
-                <div className="rounded-lg bg-primary/10 p-2">
-                  <Icon className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {stat.name}
-                  </p>
-                  <div className="flex items-baseline gap-2">
-                    <p className="text-2xl font-semibold">{stat.value}</p>
-                    <span className="text-sm font-medium text-success">
-                      {stat.change}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">
+          Upload and manage your legal documents
+        </p>
       </div>
 
-      {/* Recent Documents */}
-      <div className="rounded-xl border bg-card shadow-sm">
-        <div className="border-b p-6">
-          <h2 className="text-lg font-semibold">Recent Documents</h2>
+      {/* File Upload */}
+      <div className="rounded-lg border bg-card p-4">
+        <h2 className="mb-4 text-lg font-medium">Upload Documents</h2>
+        <FileUpload onUpload={handleUpload} />
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-destructive">
+          <AlertCircle className="h-5 w-5" />
+          <p>{error}</p>
         </div>
-        <div className="divide-y">
-          {recentDocuments.map((doc) => (
-            <div
-              key={doc.id}
-              className="flex items-center justify-between p-6 hover:bg-muted/50 transition-colors"
-            >
-              <div className="flex items-center gap-4">
-                <div className="rounded-lg bg-primary/10 p-2">
+      )}
+
+      {/* Documents List */}
+      <div className="rounded-lg border bg-card">
+        <div className="border-b p-4">
+          <h2 className="text-lg font-medium">Recent Documents</h2>
+        </div>
+        {loading ? (
+          <div className="flex items-center justify-center p-8">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          </div>
+        ) : documents.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 p-8 text-center">
+            <FileText className="h-8 w-8 text-muted-foreground" />
+            <h3 className="font-medium">No documents yet</h3>
+            <p className="text-sm text-muted-foreground">
+              Upload your first document to get started
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y">
+            {documents.map((doc) => (
+              <div
+                key={doc.id}
+                className="flex items-center justify-between p-4"
+              >
+                <div className="flex items-center gap-3">
                   <FileText className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="font-medium">{doc.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {doc.size} • {doc.lastUpdated}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium">{doc.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {doc.type} • {doc.date}
-                  </p>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                      doc.status === "Analyzed"
+                        ? "bg-success/10 text-success"
+                        : doc.status === "Processing"
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {doc.status}
+                  </span>
                 </div>
               </div>
-              <div>
-                <span
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    doc.status === "Analyzed"
-                      ? "bg-success/10 text-success"
-                      : doc.status === "Processing"
-                      ? "bg-primary/10 text-primary"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {doc.status}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
