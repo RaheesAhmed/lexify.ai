@@ -3,13 +3,26 @@
 import { useState } from "react";
 import { FileUpload } from "@/components/ui/file-upload";
 import { Upload, AlertCircle } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { redirect } from "next/navigation";
 
 export default function UploadPage() {
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      redirect("/login");
+    },
+  });
   const [uploading, setUploading] = useState<boolean>(false);
   const [progress, setProgress] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
   const handleFilesSelected = async (files: File[]) => {
+    if (!session?.user) {
+      setError("Please sign in to upload documents");
+      return;
+    }
+
     setUploading(true);
     setProgress(0);
     setError(null);
@@ -18,16 +31,16 @@ export default function UploadPage() {
       for (const file of files) {
         const formData = new FormData();
         formData.append("file", file);
-        // TODO: Get actual user ID from auth context
-        formData.append("userId", "user123");
+        formData.append("userId", session.user.id);
 
         const response = await fetch("/api/documents", {
           method: "POST",
           body: formData,
         });
 
+        const data = await response.json();
+
         if (!response.ok) {
-          const data = await response.json();
           throw new Error(data.error || "Failed to upload file");
         }
 
@@ -43,9 +56,7 @@ export default function UploadPage() {
     } catch (error) {
       console.error("Upload error:", error);
       setError(
-        error instanceof Error
-          ? error.message
-          : "Failed to upload files. Please try again."
+        error instanceof Error ? error.message : "Failed to upload files"
       );
       setUploading(false);
     }

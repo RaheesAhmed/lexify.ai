@@ -16,20 +16,30 @@ export async function GET(req: Request) {
       );
     }
 
+    // Verify user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
     const documents = await prisma.document.findMany({
       where: {
         userId: userId,
       },
       orderBy: {
-        createdAt: "desc",
+        created_at: "desc",
       },
       select: {
         id: true,
-        name: true,
-        type: true,
-        size: true,
-        status: true,
-        createdAt: true,
+        title: true,
+        file_type: true,
+        file_size: true,
+        created_at: true,
+        updated_at: true,
+        metadata: true,
       },
     });
 
@@ -48,20 +58,43 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    console.log("Received upload request");
     const formData = await req.formData();
+
     const file = formData.get("file") as File;
     const userId = formData.get("userId") as string;
 
+    console.log("Received data:", {
+      fileName: file?.name,
+      fileType: file?.type,
+      fileSize: file?.size,
+      userId,
+    });
+
     if (!file) {
+      console.log("No file provided");
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
     if (!userId) {
+      console.log("No user ID provided");
       return NextResponse.json(
         { error: "User ID is required" },
         { status: 400 }
       );
     }
+
+    // Verify user exists
+    console.log("Looking up user:", userId);
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      console.log("User not found:", userId);
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+    console.log("Found user:", user.email);
 
     // Validate file type
     const allowedTypes = [
@@ -70,6 +103,7 @@ export async function POST(req: Request) {
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ];
     if (!allowedTypes.includes(file.type)) {
+      console.log("Invalid file type:", file.type);
       return NextResponse.json(
         {
           error: "Invalid file type. Only PDF and Word documents are allowed.",
@@ -78,45 +112,71 @@ export async function POST(req: Request) {
       );
     }
 
+    // Validate file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+    if (file.size > maxSize) {
+      console.log("File too large:", formatFileSize(file.size));
+      return NextResponse.json(
+        {
+          error: "File size exceeds 10MB limit.",
+        },
+        { status: 400 }
+      );
+    }
+
     // Generate unique ID for the document
     const documentId = uuidv4();
+    console.log("Generated document ID:", documentId);
 
     // Create uploads directory if it doesn't exist
     const uploadDir = join(process.cwd(), "uploads");
     try {
       await mkdir(uploadDir, { recursive: true });
+      console.log("Created/verified uploads directory:", uploadDir);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
-        throw error;
+        console.error("Error creating upload directory:", error);
+        return NextResponse.json(
+          { error: "Failed to create upload directory" },
+          { status: 500 }
+        );
       }
     }
 
     // Save file to uploads directory
     try {
-      await writeFile(
-        join(uploadDir, documentId),
-        Buffer.from(await file.arrayBuffer())
-      );
+      const filePath = join(uploadDir, documentId);
+      await writeFile(filePath, Buffer.from(await file.arrayBuffer()));
+      console.log("Saved file to:", filePath);
 
       // Create document record in database
+      console.log("Creating database record");
       const document = await prisma.document.create({
         data: {
           id: documentId,
-          name: file.name,
-          type: file.type,
-          size: file.size,
+          title: file.name, // Use file name as title
+          content: "", // Empty content initially
+          file_type: file.type,
+          file_size: file.size,
+          file_url: filePath,
           userId: userId,
-          status: "PENDING",
+          metadata: {
+            originalName: file.name,
+            uploadedAt: new Date().toISOString(),
+            status: "PENDING",
+          },
         },
         select: {
           id: true,
-          name: true,
-          type: true,
-          size: true,
-          status: true,
-          createdAt: true,
+          title: true,
+          file_type: true,
+          file_size: true,
+          created_at: true,
+          updated_at: true,
+          metadata: true,
         },
       });
+      console.log("Created document record:", document);
 
       return NextResponse.json({
         success: true,

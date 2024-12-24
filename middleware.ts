@@ -1,35 +1,41 @@
-import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
+import { withAuth } from "next-auth/middleware";
+import { NextRequestWithAuth } from "next-auth/middleware";
 
-export async function middleware(request: NextRequest) {
-  const token = await getToken({ req: request });
+export default withAuth(
+  async function middleware(req: NextRequestWithAuth) {
+    const token = await getToken({ req });
+    const isAuth = !!token;
+    const isAuthPage =
+      req.nextUrl.pathname.startsWith("/login") ||
+      req.nextUrl.pathname.startsWith("/register");
 
-  // Get pathname of request (e.g. /dashboard)
-  const path = request.nextUrl.pathname;
+    if (isAuthPage) {
+      if (isAuth) {
+        return NextResponse.redirect(new URL("/dashboard", req.url));
+      }
+      return null;
+    }
 
-  // Public paths that don't require authentication
-  const publicPaths = ["/", "/login", "/signup", "/reset-password"];
+    if (!isAuth) {
+      let from = req.nextUrl.pathname;
+      if (req.nextUrl.search) {
+        from += req.nextUrl.search;
+      }
 
-  // Check if the path is public
-  const isPublicPath = publicPaths.includes(path);
-
-  // Redirect authenticated users away from auth pages
-  if (isPublicPath && token) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+      return NextResponse.redirect(
+        new URL(`/login?from=${encodeURIComponent(from)}`, req.url)
+      );
+    }
+  },
+  {
+    callbacks: {
+      authorized: ({ token }) => true,
+    },
   }
-
-  // Redirect unauthenticated users to login page
-  if (!isPublicPath && !token) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("callbackUrl", path);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  return NextResponse.next();
-}
+);
 
 export const config = {
-  // Matcher ignoring _next/static, _next/image, favicon.ico, api routes
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/dashboard/:path*", "/login", "/register"],
 };
