@@ -8,7 +8,8 @@ export const authOptions: NextAuthOptions = {
     signIn: "/login",
   },
   session: {
-    strategy: "jwt" as const,
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   providers: [
     CredentialsProvider({
@@ -26,9 +27,15 @@ export const authOptions: NextAuthOptions = {
           where: {
             email: credentials.email.toLowerCase(),
           },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            password: true,
+          },
         });
 
-        if (!user) {
+        if (!user || !user.password) {
           return null;
         }
 
@@ -50,13 +57,16 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }: { token: any; user: any }) {
+    async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
+        return {
+          ...token,
+          id: user.id,
+        };
       }
       return token;
     },
-    async session({ session, token }: { session: any; token: any }) {
+    async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id;
       }

@@ -2,7 +2,13 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import Link from "next/link";
-import { Search, LayoutDashboard, FileText, LogOut } from "lucide-react";
+import {
+  Search,
+  LayoutDashboard,
+  FileText,
+  LogOut,
+  BarChart3,
+} from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 
 export default async function DashboardLayout({
@@ -39,6 +45,13 @@ export default async function DashboardLayout({
             >
               <LayoutDashboard className="mr-2 h-4 w-4" />
               Dashboard
+            </Link>
+            <Link
+              href="/dashboard/analytics"
+              className="group flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+            >
+              <BarChart3 className="mr-2 h-4 w-4" />
+              Analytics
             </Link>
             <Link
               href="/dashboard/documents"

@@ -6,6 +6,8 @@ import { useSession } from "next-auth/react";
 import { AlertCircle, FileText, Clock } from "lucide-react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { MetricsCards } from "@/components/analytics/metrics-cards";
+import { ProcessingTrends } from "@/components/analytics/processing-trends";
 
 interface Document {
   id: string;
@@ -17,6 +19,22 @@ interface Document {
     originalName: string;
     uploadedAt: string;
     status: "PENDING" | "PROCESSING" | "ANALYZED" | "FAILED";
+  };
+}
+
+interface AnalyticsData {
+  totalDocuments: number;
+  activeUsers: number;
+  completedAnalyses: number;
+  processingRate: number;
+  trendsData: {
+    labels: string[];
+    datasets: {
+      label: string;
+      data: number[];
+      borderColor: string;
+      backgroundColor: string;
+    }[];
   };
 }
 
@@ -32,12 +50,32 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loadingDocuments, setLoadingDocuments] = useState(true);
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(
+    null
+  );
+  const [loadingAnalytics, setLoadingAnalytics] = useState(true);
 
   useEffect(() => {
     if (session?.user?.id) {
       fetchDocuments();
+      fetchAnalytics();
     }
   }, [session?.user?.id]);
+
+  const fetchAnalytics = async () => {
+    try {
+      const response = await fetch("/api/analytics");
+      if (!response.ok) {
+        throw new Error("Failed to fetch analytics");
+      }
+      const data = await response.json();
+      setAnalyticsData(data);
+    } catch (error) {
+      console.error("Error fetching analytics:", error);
+    } finally {
+      setLoadingAnalytics(false);
+    }
+  };
 
   const fetchDocuments = async () => {
     try {
@@ -149,6 +187,23 @@ export default function DashboardPage() {
           <p className="text-sm">{error}</p>
         </div>
       )}
+
+      {/* Analytics Section */}
+      {loadingAnalytics ? (
+        <div className="flex items-center justify-center py-8">
+          <Clock className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : analyticsData ? (
+        <div className="space-y-6">
+          <MetricsCards
+            totalDocuments={analyticsData.totalDocuments}
+            activeUsers={analyticsData.activeUsers}
+            completedAnalyses={analyticsData.completedAnalyses}
+            processingRate={analyticsData.processingRate}
+          />
+          <ProcessingTrends data={analyticsData.trendsData} />
+        </div>
+      ) : null}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Quick Upload Card */}

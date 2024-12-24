@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
-import type { Comment, Reply, User } from "@prisma/client";
+import type { Comment, Reply, User } from "@/lib/prisma";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
