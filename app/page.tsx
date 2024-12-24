@@ -122,7 +122,7 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
               <div className="w-[160px] h-[30px] mb-4">
-                <Logo size="default" className="w-full h-full" />
+                <Logo className="w-full h-full" />
               </div>
               <p className="text-sm text-muted-foreground">
                 Next-generation legal document analysis and management platform

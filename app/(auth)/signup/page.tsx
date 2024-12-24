@@ -2,81 +2,104 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 export default function SignUpPage() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setErrors({});
-
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-
-    // Basic validation
-    const newErrors: { [key: string]: string } = {};
-    if (!email) newErrors.email = "Email is required";
-    if (!password) newErrors.password = "Password is required";
-    if (password && password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters";
-    }
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      setIsLoading(false);
-      return;
-    }
+    setError(null);
+    setLoading(true);
 
     try {
-      // TODO: Implement sign up logic
-      console.log("Sign up with:", { email, password });
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Something went wrong");
+      }
+
+      // Redirect to login page after successful signup
+      router.push("/login?registered=true");
     } catch (error) {
-      console.error("Sign up error:", error);
-      setErrors({ submit: "Something went wrong. Please try again." });
+      console.error("Signup error:", error);
+      setError(error instanceof Error ? error.message : "Something went wrong");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-md space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Create an account
-        </h1>
+        <h1 className="text-3xl font-bold">Create an Account</h1>
         <p className="text-sm text-muted-foreground">
-          Enter your email below to create your account
+          Enter your information to get started
         </p>
       </div>
+
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          <p className="text-sm">{error}</p>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <label
-            htmlFor="email"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
+          <label htmlFor="name" className="text-sm font-medium">
+            Name
+          </label>
+          <Input
+            id="name"
+            name="name"
+            type="text"
+            placeholder="John Doe"
+            value={formData.name}
+            onChange={handleChange}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="email" className="text-sm font-medium">
             Email
           </label>
           <Input
             id="email"
             name="email"
             type="email"
-            placeholder="m@example.com"
-            autoComplete="email"
-            autoCapitalize="none"
-            autoCorrect="off"
-            disabled={isLoading}
-            error={errors.email}
+            placeholder="john@example.com"
+            value={formData.email}
+            onChange={handleChange}
+            required
           />
         </div>
+
         <div className="space-y-2">
-          <label
-            htmlFor="password"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
+          <label htmlFor="password" className="text-sm font-medium">
             Password
           </label>
           <Input
@@ -84,31 +107,31 @@ export default function SignUpPage() {
             name="password"
             type="password"
             placeholder="••••••••"
-            autoComplete="new-password"
-            disabled={isLoading}
-            error={errors.password}
+            value={formData.password}
+            onChange={handleChange}
+            required
+            minLength={8}
           />
         </div>
-        {errors.submit && (
-          <div className="text-sm text-destructive">{errors.submit}</div>
-        )}
+
         <button
           type="submit"
-          className="inline-flex w-full items-center justify-center rounded-md bg-primary px-8 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-          disabled={isLoading}
+          disabled={loading}
+          className="button-primary w-full"
         >
-          {isLoading ? "Creating account..." : "Create account"}
+          {loading ? "Creating Account..." : "Create Account"}
         </button>
       </form>
-      <div className="text-center text-sm">
+
+      <p className="text-center text-sm text-muted-foreground">
         Already have an account?{" "}
         <Link
           href="/login"
-          className="underline underline-offset-4 hover:text-primary"
+          className="font-medium text-primary hover:underline"
         >
-          Sign in
+          Sign In
         </Link>
-      </div>
+      </p>
     </div>
   );
 }

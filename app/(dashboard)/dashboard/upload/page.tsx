@@ -5,8 +5,8 @@ import { FileUpload } from "@/components/ui/file-upload";
 import { Upload, AlertCircle } from "lucide-react";
 
 export default function UploadPage() {
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [uploading, setUploading] = useState<boolean>(false);
+  const [progress, setProgress] = useState<number>(0);
   const [error, setError] = useState<string | null>(null);
 
   const handleFilesSelected = async (files: File[]) => {
@@ -15,36 +15,38 @@ export default function UploadPage() {
     setError(null);
 
     try {
-      // Simulate file upload with progress
-      for (let i = 0; i <= 100; i += 10) {
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        setProgress(i);
-      }
+      for (const file of files) {
+        const formData = new FormData();
+        formData.append("file", file);
+        // TODO: Get actual user ID from auth context
+        formData.append("userId", "user123");
 
-      // TODO: Replace with actual file upload logic
-      const formData = new FormData();
-      files.forEach((file) => {
-        formData.append("files", file);
-      });
+        const response = await fetch("/api/documents", {
+          method: "POST",
+          body: formData,
+        });
 
-      const response = await fetch("/api/documents/upload", {
-        method: "POST",
-        body: formData,
-      });
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Failed to upload file");
+        }
 
-      if (!response.ok) {
-        throw new Error("Failed to upload files");
+        // Update progress for each file
+        setProgress((prev) => prev + 100 / files.length);
       }
 
       // Reset state after successful upload
-      setProgress(100);
       setTimeout(() => {
         setUploading(false);
         setProgress(0);
       }, 500);
     } catch (error) {
       console.error("Upload error:", error);
-      setError("Failed to upload files. Please try again.");
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to upload files. Please try again."
+      );
       setUploading(false);
     }
   };
@@ -80,7 +82,12 @@ export default function UploadPage() {
             onFilesSelected={handleFilesSelected}
             maxFiles={5}
             maxSize={10}
-            accept={[".pdf", ".doc", ".docx"]}
+            accept={{
+              "application/pdf": [".pdf"],
+              "application/msword": [".doc"],
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                [".docx"],
+            }}
             uploading={uploading}
             progress={progress}
           />

@@ -3,11 +3,34 @@ import OpenAI from "openai";
 
 // Initialize OpenAI client
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY || "",
 });
 
+// Define a type for the document structure
+interface Document {
+  id: string;
+  content: string;
+  status: string;
+  lastUpdated?: string;
+  analysis?: string;
+  riskScore?: number;
+  clauses?: Array<{
+    id: number;
+    type: string;
+    content: string;
+    risk: string;
+    recommendation: string;
+  }>;
+  compliance?: Array<{
+    id: number;
+    check: string;
+    status: string;
+    details: string;
+  }>;
+}
+
 // Mock database - Replace with actual database
-const documents = new Map();
+const documents = new Map<string, Document>();
 
 export async function GET(
   request: Request,
@@ -68,7 +91,7 @@ export async function POST(
     });
 
     // Process the analysis results
-    const analysis = completion.choices[0].message.content;
+    const analysis = completion.choices[0]?.message?.content || "";
 
     // Update document with analysis results
     document.status = "Analyzed";

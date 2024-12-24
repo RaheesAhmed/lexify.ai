@@ -1,122 +1,120 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { FileText, Upload, X, AlertCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Upload, X, FileText, AlertCircle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
-interface FileUploadProps {
-  onUpload: (file: File) => Promise<void>;
-  maxSize?: number; // in bytes
+export interface FileUploadProps {
+  onFilesSelected: (files: File[]) => void;
+  maxFiles?: number;
+  maxSize?: number; // in MB
   accept?: Record<string, string[]>;
-  className?: string;
+  uploading?: boolean;
+  progress?: number;
 }
 
 export function FileUpload({
-  onUpload,
-  maxSize = 10 * 1024 * 1024, // 10MB default
-  accept = {
-    "application/pdf": [".pdf"],
-    "application/msword": [".doc"],
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [
-      ".docx",
-    ],
-  },
-  className,
+  onFilesSelected,
+  maxFiles = 1,
+  maxSize = 10,
+  accept,
+  uploading = false,
+  progress = 0,
 }: FileUploadProps) {
-  const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const onDrop = useCallback(
-    async (acceptedFiles: File[]) => {
-      setError(null);
-
-      // Validate file size
-      const file = acceptedFiles[0];
-      if (file.size > maxSize) {
-        setError(`File size must be less than ${formatFileSize(maxSize)}`);
+    (acceptedFiles: File[], rejectedFiles: any[]) => {
+      // Handle rejected files
+      if (rejectedFiles.length > 0) {
+        const errors = rejectedFiles.map((file) => {
+          const error = file.errors[0];
+          if (error.code === "file-too-large") {
+            return `${file.file.name} is too large. Maximum size is ${maxSize}MB`;
+          }
+          if (error.code === "file-invalid-type") {
+            return `${file.file.name} is not a supported file type`;
+          }
+          return `${file.file.name} could not be uploaded`;
+        });
+        setError(errors[0]);
         return;
       }
 
-      setFiles([file]);
-
-      try {
-        setUploading(true);
-        await onUpload(file);
-        setFiles([]);
-      } catch (error) {
-        console.error("Upload error:", error);
-        setError("Failed to upload file. Please try again.");
-      } finally {
-        setUploading(false);
+      // Check if adding new files would exceed maxFiles
+      if (selectedFiles.length + acceptedFiles.length > maxFiles) {
+        setError(`Maximum ${maxFiles} files allowed`);
+        return;
       }
+
+      setError(null);
+      const newFiles = [...selectedFiles, ...acceptedFiles];
+      setSelectedFiles(newFiles);
+      onFilesSelected(newFiles);
     },
-    [maxSize, onUpload]
+    [maxFiles, maxSize, onFilesSelected, selectedFiles]
   );
+
+  const removeFile = (index: number) => {
+    const newFiles = selectedFiles.filter((_, i) => i !== index);
+    setSelectedFiles(newFiles);
+    onFilesSelected(newFiles);
+  };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    maxFiles,
+    maxSize: maxSize * 1024 * 1024, // Convert MB to bytes
     accept,
-    maxFiles: 1,
-    multiple: false,
   });
 
-  const removeFile = (index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-    setError(null);
-  };
-
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className="space-y-4">
       <div
         {...getRootProps()}
-        className={cn(
-          "relative rounded-lg border-2 border-dashed border-muted-foreground/25 p-8 transition-colors",
-          isDragActive && "border-primary/50 bg-primary/5",
-          error && "border-destructive/50 bg-destructive/5"
-        )}
+        className={`border-2 border-dashed rounded-lg p-8 text-center hover:bg-muted/50 transition-colors cursor-pointer ${
+          isDragActive
+            ? "border-primary bg-primary/10"
+            : "border-muted-foreground/25"
+        }`}
       >
         <input {...getInputProps()} />
-        <div className="flex flex-col items-center justify-center gap-2 text-center">
-          <Upload
-            className={cn(
-              "h-8 w-8",
-              isDragActive ? "text-primary" : "text-muted-foreground"
-            )}
-          />
-          <div className="space-y-1">
-            <p className="text-sm font-medium">
-              {isDragActive ? "Drop the file here" : "Drag & drop file here"}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              or click to select file
-            </p>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            PDF or Word documents up to {formatFileSize(maxSize)}
-          </p>
+        <div className="flex flex-col items-center gap-2">
+          <Upload className="h-8 w-8 text-muted-foreground" />
+          {isDragActive ? (
+            <p>Drop the files here...</p>
+          ) : (
+            <>
+              <p className="text-sm">
+                <span className="font-medium">Click to upload</span> or drag and
+                drop
+              </p>
+              <p className="text-xs text-muted-foreground">
+                PDF or Word documents up to {maxSize}MB
+              </p>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Error message */}
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-destructive">
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-destructive text-sm">
           <AlertCircle className="h-4 w-4" />
-          <p className="text-sm">{error}</p>
+          <p>{error}</p>
         </div>
       )}
 
-      {/* File list */}
-      {files.length > 0 && (
-        <ul className="space-y-2">
-          {files.map((file, index) => (
-            <li
+      {selectedFiles.length > 0 && (
+        <div className="space-y-2">
+          {selectedFiles.map((file, index) => (
+            <div
               key={index}
               className="flex items-center justify-between rounded-lg border bg-card p-3"
             >
               <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary" />
+                <FileText className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="text-sm font-medium">{file.name}</p>
                   <p className="text-xs text-muted-foreground">
@@ -128,20 +126,19 @@ export function FileUpload({
                 onClick={() => removeFile(index)}
                 className="rounded-full p-1 hover:bg-muted"
               >
-                <X className="h-4 w-4 text-muted-foreground" />
+                <X className="h-4 w-4" />
               </button>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
 
-      {/* Upload progress */}
       {uploading && (
-        <div className="flex items-center gap-2">
-          <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
-            <div className="h-full w-1/2 animate-progress rounded-full bg-primary" />
-          </div>
-          <p className="text-xs text-muted-foreground">Uploading...</p>
+        <div className="space-y-2">
+          <Progress value={progress} />
+          <p className="text-xs text-center text-muted-foreground">
+            Uploading... {Math.round(progress)}%
+          </p>
         </div>
       )}
     </div>
@@ -155,10 +152,3 @@ function formatFileSize(bytes: number): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
-
-// Add this to your globals.css
-// @keyframes progress {
-//   0% { transform: translateX(-100%); }
-//   50% { transform: translateX(100%); }
-//   100% { transform: translateX(-100%); }
-// }

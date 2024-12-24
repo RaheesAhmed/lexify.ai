@@ -1,94 +1,106 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signIn } from "next-auth/react";
+import { AlertCircle, CheckCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const searchParams = useSearchParams();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  });
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setErrors({});
-
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-
-    // Basic validation
-    const newErrors: { [key: string]: string } = {};
-    if (!email) newErrors.email = "Email is required";
-    if (!password) newErrors.password = "Password is required";
-
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      setIsLoading(false);
-      return;
-    }
+    setError(null);
+    setLoading(true);
 
     try {
-      // TODO: Replace with your actual authentication logic
-      // This is just a mock implementation
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
+      const result = await signIn("credentials", {
+        redirect: false,
+        email: formData.email.toLowerCase(),
+        password: formData.password,
       });
 
-      if (!response.ok) {
-        throw new Error("Invalid credentials");
+      if (result?.error) {
+        setError(result.error);
+        return;
       }
 
-      // If login successful, redirect to dashboard
-      router.push("/dashboard");
+      const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+      router.push(callbackUrl);
+      router.refresh();
     } catch (error) {
       console.error("Login error:", error);
-      setErrors({ submit: "Invalid email or password" });
+      setError("An error occurred during login");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (error) setError(null);
+  };
+
+  const isRegistered = searchParams.get("registered") === "true";
+
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-md space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
+        <h1 className="text-3xl font-bold">Welcome Back</h1>
         <p className="text-sm text-muted-foreground">
-          Enter your email to sign in to your account
+          Sign in to your account to continue
         </p>
       </div>
+
+      {isRegistered && (
+        <div className="flex items-center gap-2 rounded-lg border border-success/50 bg-success/10 p-3 text-success">
+          <CheckCircle className="h-4 w-4" />
+          <p className="text-sm">
+            Account created successfully. Please sign in.
+          </p>
+        </div>
+      )}
+
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          <p className="text-sm">{error}</p>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <label
-            htmlFor="email"
-            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-          >
+          <label htmlFor="email" className="text-sm font-medium">
             Email
           </label>
           <Input
             id="email"
             name="email"
             type="email"
-            placeholder="m@example.com"
+            placeholder="john@example.com"
+            value={formData.email}
+            onChange={handleChange}
+            required
+            disabled={loading}
             autoComplete="email"
             autoCapitalize="none"
             autoCorrect="off"
-            disabled={isLoading}
-            error={errors.email}
           />
         </div>
+
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label
-              htmlFor="password"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
+            <label htmlFor="password" className="text-sm font-medium">
               Password
             </label>
             <Link
@@ -103,31 +115,32 @@ export default function LoginPage() {
             name="password"
             type="password"
             placeholder="••••••••"
+            value={formData.password}
+            onChange={handleChange}
+            required
+            disabled={loading}
             autoComplete="current-password"
-            disabled={isLoading}
-            error={errors.password}
           />
         </div>
-        {errors.submit && (
-          <div className="text-sm text-destructive">{errors.submit}</div>
-        )}
+
         <button
           type="submit"
-          className="inline-flex w-full items-center justify-center rounded-md bg-primary px-8 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
-          disabled={isLoading}
+          disabled={loading}
+          className="button-primary w-full"
         >
-          {isLoading ? "Signing in..." : "Sign in"}
+          {loading ? "Signing In..." : "Sign In"}
         </button>
       </form>
-      <div className="text-center text-sm">
-        Don&apos;t have an account?{" "}
+
+      <p className="text-center text-sm text-muted-foreground">
+        Don't have an account?{" "}
         <Link
           href="/signup"
-          className="underline underline-offset-4 hover:text-primary"
+          className="font-medium text-primary hover:underline"
         >
-          Sign up
+          Create Account
         </Link>
-      </div>
+      </p>
     </div>
   );
 }

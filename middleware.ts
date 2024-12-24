@@ -1,26 +1,35 @@
+import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// This function can be marked `async` if using `await` inside
-export function middleware(request: NextRequest) {
-  const isAuthenticated = request.cookies.has("auth-token"); // Replace with your actual auth token name
-  const isAuthPage = request.nextUrl.pathname.startsWith("/(auth)");
-  const isDashboardPage = request.nextUrl.pathname.startsWith("/dashboard");
+export async function middleware(request: NextRequest) {
+  const token = await getToken({ req: request });
 
-  // If trying to access auth pages while authenticated, redirect to dashboard
-  if (isAuthenticated && isAuthPage) {
+  // Get pathname of request (e.g. /dashboard)
+  const path = request.nextUrl.pathname;
+
+  // Public paths that don't require authentication
+  const publicPaths = ["/", "/login", "/signup", "/reset-password"];
+
+  // Check if the path is public
+  const isPublicPath = publicPaths.includes(path);
+
+  // Redirect authenticated users away from auth pages
+  if (isPublicPath && token) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  // If trying to access dashboard while not authenticated, redirect to login
-  if (!isAuthenticated && isDashboardPage) {
-    return NextResponse.redirect(new URL("/login", request.url));
+  // Redirect unauthenticated users to login page
+  if (!isPublicPath && !token) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("callbackUrl", path);
+    return NextResponse.redirect(loginUrl);
   }
 
   return NextResponse.next();
 }
 
-// See "Matching Paths" below to learn more
 export const config = {
+  // Matcher ignoring _next/static, _next/image, favicon.ico, api routes
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
