@@ -3,8 +3,22 @@
 import { useState, useEffect } from "react";
 import { FileUpload } from "@/components/ui/file-upload";
 import { useSession } from "next-auth/react";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, FileText, Clock } from "lucide-react";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+
+interface Document {
+  id: string;
+  title: string;
+  file_type: string;
+  file_size: number;
+  created_at: string;
+  metadata: {
+    originalName: string;
+    uploadedAt: string;
+    status: "PENDING" | "PROCESSING" | "ANALYZED" | "FAILED";
+  };
+}
 
 export default function DashboardPage() {
   const { data: session, status } = useSession({
@@ -16,12 +30,31 @@ export default function DashboardPage() {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(true);
 
-  // Debug session data
   useEffect(() => {
-    console.log("Session status:", status);
-    console.log("Session data:", session);
-  }, [session, status]);
+    if (session?.user?.id) {
+      fetchDocuments();
+    }
+  }, [session?.user?.id]);
+
+  const fetchDocuments = async () => {
+    try {
+      const response = await fetch(
+        `/api/documents?userId=${session?.user?.id}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch documents");
+      }
+      const data = await response.json();
+      setDocuments(data.documents || []);
+    } catch (error) {
+      console.error("Error fetching documents:", error);
+    } finally {
+      setLoadingDocuments(false);
+    }
+  };
 
   const handleFilesSelected = async (files: File[]) => {
     if (!session?.user) {
@@ -39,7 +72,6 @@ export default function DashboardPage() {
 
         const formData = new FormData();
         formData.append("file", file);
-        // Get the actual user ID from the session
         formData.append("userId", session.user.id);
 
         console.log("Making request with userId:", session.user.id);
@@ -60,6 +92,9 @@ export default function DashboardPage() {
         setProgress((prev) => prev + 100 / files.length);
       }
 
+      // Refresh documents list after successful upload
+      fetchDocuments();
+
       // Reset state after successful upload
       setTimeout(() => {
         setUploading(false);
@@ -72,6 +107,22 @@ export default function DashboardPage() {
       );
       setUploading(false);
     }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
   };
 
   // Show loading state while checking session
@@ -128,8 +179,47 @@ export default function DashboardPage() {
             <h2 className="font-semibold">Recent Documents</h2>
           </div>
           <div className="p-4">
-            {/* TODO: Add recent documents list */}
-            <p className="text-sm text-muted-foreground">No documents yet</p>
+            {loadingDocuments ? (
+              <div className="flex items-center justify-center py-4">
+                <Clock className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : documents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No documents yet</p>
+            ) : (
+              <div className="space-y-4">
+                {documents.slice(0, 5).map((doc) => (
+                  <Link
+                    key={doc.id}
+                    href={`/dashboard/documents/${doc.id}`}
+                    className="flex items-center justify-between rounded-lg border p-4 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="rounded-lg bg-primary/10 p-2">
+                        <FileText className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{doc.title}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {doc.file_type} • {formatDate(doc.created_at)} •{" "}
+                          {formatFileSize(doc.file_size)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {doc.metadata.status}
+                    </div>
+                  </Link>
+                ))}
+                {documents.length > 5 && (
+                  <Link
+                    href="/dashboard/documents"
+                    className="block text-center text-sm text-primary hover:underline"
+                  >
+                    View all documents
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

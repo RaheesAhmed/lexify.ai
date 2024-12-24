@@ -9,7 +9,10 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
 
+    console.log("GET /api/documents - Received request for userId:", userId);
+
     if (!userId) {
+      console.log("GET /api/documents - No userId provided");
       return NextResponse.json(
         { error: "User ID is required" },
         { status: 400 }
@@ -17,13 +20,17 @@ export async function GET(req: Request) {
     }
 
     // Verify user exists
+    console.log("GET /api/documents - Looking up user:", userId);
     const user = await prisma.user.findUnique({
       where: { id: userId },
     });
 
     if (!user) {
+      console.log("GET /api/documents - User not found:", userId);
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
+
+    console.log("GET /api/documents - Found user:", user.email);
 
     const documents = await prisma.document.findMany({
       where: {
@@ -43,12 +50,14 @@ export async function GET(req: Request) {
       },
     });
 
+    console.log("GET /api/documents - Found documents:", documents.length);
+
     return NextResponse.json({
       success: true,
       documents,
     });
   } catch (error) {
-    console.error("Error fetching documents:", error);
+    console.error("GET /api/documents - Error:", error);
     return NextResponse.json(
       { error: "Failed to fetch documents" },
       { status: 500 }

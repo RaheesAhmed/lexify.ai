@@ -27,7 +27,7 @@ interface Document {
 }
 
 export default function DocumentsPage() {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,24 +35,36 @@ export default function DocumentsPage() {
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log("Session status:", sessionStatus);
+    console.log("Session data:", session);
+
     if (session?.user?.id) {
+      console.log("User ID found, fetching documents...");
       fetchDocuments();
       // Set up polling for document status updates
       const interval = setInterval(fetchDocuments, 10000); // Poll every 10 seconds
       return () => clearInterval(interval);
+    } else {
+      console.log("No user ID found in session");
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, sessionStatus]);
 
   const fetchDocuments = async () => {
     try {
+      console.log("Fetching documents for user:", session?.user?.id);
       const response = await fetch(
         `/api/documents?userId=${session?.user?.id}`
       );
-      if (!response.ok) {
-        throw new Error("Failed to fetch documents");
-      }
+
+      console.log("Response status:", response.status);
       const data = await response.json();
-      setDocuments(data.documents);
+      console.log("Fetched data:", data);
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to fetch documents");
+      }
+
+      setDocuments(data.documents || []);
       setError(null);
     } catch (error) {
       console.error("Error fetching documents:", error);
@@ -70,6 +82,8 @@ export default function DocumentsPage() {
       !selectedStatus || doc.metadata?.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
+
+  console.log("Filtered documents:", filteredDocuments);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -100,7 +114,7 @@ export default function DocumentsPage() {
     }
   };
 
-  if (loading) {
+  if (sessionStatus === "loading" || loading) {
     return (
       <div className="flex items-center justify-center min-h-[200px]">
         <div className="flex items-center gap-2">
