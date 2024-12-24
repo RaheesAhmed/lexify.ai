@@ -6,7 +6,6 @@ import { Logo } from "@/components/ui/logo";
 
 const navLinks = [
   { href: "/", label: "Home" },
-  { href: "/dashboard", label: "Dashboard" },
   { href: "/features", label: "Features" },
 ];
 
@@ -35,12 +34,20 @@ export function Navigation() {
                 {link.label}
               </Link>
             ))}
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center rounded-md bg-primary px-8 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-primary/90"
-            >
-              Login
-            </Link>
+            <div className="flex items-center gap-4">
+              <Link
+                href="/dashboard"
+                className="text-foreground/80 hover:text-foreground transition-colors"
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/login"
+                className="inline-flex items-center justify-center rounded-md bg-primary px-8 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-primary/90"
+              >
+                Sign In
+              </Link>
+            </div>
           </div>
 
           {/* Mobile menu button */}
@@ -104,10 +111,16 @@ export function Navigation() {
             </Link>
           ))}
           <Link
-            href="/login"
-            className="block px-3 py-2 text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-md transition-colors font-medium"
+            href="/dashboard"
+            className="block px-3 py-2 text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-md transition-colors"
           >
-            Login
+            Dashboard
+          </Link>
+          <Link
+            href="/login"
+            className="block px-3 py-2 text-primary font-medium hover:bg-muted/50 rounded-md transition-colors"
+          >
+            Sign In
           </Link>
         </div>
       </div>

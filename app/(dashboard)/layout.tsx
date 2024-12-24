@@ -13,6 +13,7 @@ import {
   X,
   ChevronDown,
   Bell,
+  Upload,
 } from "lucide-react";
 
 const sidebarLinks = [
@@ -25,6 +26,11 @@ const sidebarLinks = [
     href: "/dashboard/documents",
     label: "My Documents",
     icon: FileText,
+  },
+  {
+    href: "/dashboard/upload",
+    label: "Upload Documents",
+    icon: Upload,
   },
   {
     href: "/dashboard/analytics",

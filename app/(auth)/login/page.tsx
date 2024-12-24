@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -29,8 +31,22 @@ export default function LoginPage() {
     }
 
     try {
-      // TODO: Implement login logic
-      console.log("Login with:", { email, password });
+      // TODO: Replace with your actual authentication logic
+      // This is just a mock implementation
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Invalid credentials");
+      }
+
+      // If login successful, redirect to dashboard
+      router.push("/dashboard");
     } catch (error) {
       console.error("Login error:", error);
       setErrors({ submit: "Invalid email or password" });
